@@ -58,6 +58,28 @@ install_fonts() {  # MesloLGS NF: what the prompt and the tmux status bar draw t
   [[ "$OS" == "Linux" ]] && command -v fc-cache >/dev/null && fc-cache -f "$dir" >/dev/null || true
 }
 
+version_at_least() {  # version_at_least <minimum> <version>
+  [[ -n "$2" && "$(printf '%s\n' "$1" "$2" | sort -V | head -1)" == "$1" ]]
+}
+
+install_fzf_release() {  # fzf-lua (gr, Ctrl-p, Ctrl-g) needs 0.36+; Ubuntu 20.04 ships 0.20, 22.04 0.29
+  local v; v="$(fzf --version 2>/dev/null | grep -oE '^[0-9]+\.[0-9]+(\.[0-9]+)?' || true)"
+  version_at_least 0.36 "$v" && return
+  info "installing the latest fzf to ~/.fzf (the packaged one is ${v:-missing})"
+  [[ -d "$HOME/.fzf/.git" ]] && git -C "$HOME/.fzf" pull -q --ff-only \
+    || git clone -q --depth 1 https://github.com/junegunn/fzf "$HOME/.fzf"
+  "$HOME/.fzf/install" --bin >/dev/null || { warn "fzf did not install"; return; }
+  sudo ln -sf "$HOME/.fzf/bin/fzf" /usr/local/bin/fzf   # /usr/local/bin comes before /usr/bin everywhere
+  hash -r
+}
+
+warn_old_tmux() {  # popups (prefix+t), allow-passthrough and extended-keys need tmux 3.3+
+  local v; v="$(tmux -V 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || true)"
+  version_at_least 3.3 "$v" && return
+  warn "tmux ${v:-missing} is older than the 3.3 this config needs (Ubuntu 22.04 and older)."
+  [[ "$IS_WSL" == 1 ]] && warn "  In PowerShell: wsl --install -d Ubuntu-24.04; wsl --set-default Ubuntu-24.04; then re-run install.ps1."
+}
+
 install_nvim_release() {  # distro packages lag: Ubuntu 24.04 ships 0.9, and this config switches off below 0.10
   local v; v="$(nvim --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1 || true)"
   [[ -n "$v" && "$(printf '%s\n' 0.11 "$v" | sort -V | head -1)" == 0.11 ]] && return
@@ -112,7 +134,7 @@ install_deps() {
     command -v mise >/dev/null 2>&1 || { info "installing mise"; curl -fsSL https://mise.run | sh; }
     [[ -d "$HOME/.local/share/powerlevel10k" ]] || git clone --depth 1 https://github.com/romkatv/powerlevel10k "$HOME/.local/share/powerlevel10k"
   fi
-  [[ "$OS" == "Linux" ]] && install_nvim_release
+  [[ "$OS" == "Linux" ]] && { install_nvim_release; install_fzf_release; }
   export PATH="$HOME/.local/bin:$PATH"
   if [[ "$IS_WSL" == 1 ]]; then
     warn "WSL: install the MesloLGS NF font on the Windows side and pick it in Windows Terminal."
@@ -191,6 +213,8 @@ fi
 if [[ "$OS" == "Darwin" && -f "$HOME/Library/Preferences/com.googlecode.iterm2.plist" ]]; then
   "$DOTFILES/bin/iterm2-theme" || warn "iTerm2 theme not applied; run bin/iterm2-theme"
 fi
+
+warn_old_tmux
 
 info "done."
 cat <<MSG

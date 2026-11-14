@@ -219,9 +219,12 @@ function Install-NvimPlugins {
 function Get-WslDistro {
   if (-not (Test-Command 'wsl.exe')) { return $null }
   $ErrorActionPreference = 'Continue'
-  $names = (wsl.exe --list --quiet 2>$null) -replace "`0", '' | Where-Object { $_.Trim() }
-  if ($LASTEXITCODE -ne 0 -or -not $names) { return $null }
-  return @($names)[0].Trim()
+  # `wsl --list --verbose` marks the default distro with '*'; that is the one `wsl` opens
+  $rows = (wsl.exe --list --verbose 2>$null) -replace "`0", '' | Where-Object { $_.Trim() } | Select-Object -Skip 1
+  if ($LASTEXITCODE -ne 0 -or -not $rows) { return $null }
+  $default = @($rows | Where-Object { $_.TrimStart().StartsWith('*') })[0]
+  if (-not $default) { $default = @($rows)[0] }
+  return (($default.TrimStart(' ', '*').Trim()) -split '\s+')[0]
 }
 
 function Request-WslInstall {
