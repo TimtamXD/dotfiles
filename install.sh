@@ -72,6 +72,21 @@ install_nvim_release() {  # distro packages lag: Ubuntu 24.04 ships 0.9, and thi
   rm -rf "$tmp"; hash -r
 }
 
+install_gh_apt() {  # GitHub's own apt repo: Ubuntu's archive can give an old gh, or an unrelated tool named gh
+  gh --version 2>/dev/null | grep -q '^gh version' && return
+  info "installing GitHub CLI from cli.github.com"
+  sudo mkdir -p -m 755 /etc/apt/keyrings
+  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
+  sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+  sudo apt-get update && sudo apt-get install -y gh || warn "GitHub CLI did not install"
+  hash -r
+  gh --version 2>/dev/null | grep -q '^gh version' \
+    || warn "another 'gh' is first on PATH: $(command -v gh); remove it (pip uninstall gh / pipx uninstall gh)"
+}
+
 install_deps() {
   local core="zsh tmux neovim git ripgrep fd fzf jq gh python3 curl unzip cmake"
   if [[ "$OS" == "Darwin" ]]; then
@@ -83,7 +98,8 @@ install_deps() {
     brew_arm install $core mise powerlevel10k || true
   elif command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update
-    sudo apt-get install -y zsh tmux neovim git ripgrep fd-find fzf jq gh python3 curl unzip cmake build-essential clang || true
+    sudo apt-get install -y zsh tmux neovim git ripgrep fd-find fzf jq python3 curl unzip cmake build-essential clang || true
+    install_gh_apt
     command -v fdfind >/dev/null 2>&1 && mkdir -p "$HOME/bin" && ln -sf "$(command -v fdfind)" "$HOME/bin/fd"
   elif command -v dnf >/dev/null 2>&1; then
     sudo dnf install -y zsh tmux neovim git ripgrep fd-find fzf jq gh python3 curl unzip cmake gcc-c++ clang || true
