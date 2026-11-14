@@ -238,7 +238,7 @@ function Request-WslInstall {
 function Test-WslSetup([string]$Distro) {
   $ErrorActionPreference = 'Continue'
   # no double quotes: Windows PowerShell 5.1 passes them to native programs unescaped
-  $check = 'v=$(nvim --version 2>/dev/null | head -1); v=${v#NVIM v}; test -x ~/.dotfiles/bin/cv ' +
+  $check = 'v=$(nvim --version 2>/dev/null | head -1); v=${v#NVIM v}; [ ${#v} -gt 0 ] && test -x ~/.dotfiles/bin/cv ' +
     '&& command -v tmux >/dev/null && printf ''%s\n'' 0.11 $v | sort -VC && echo ok nvim $v'
   $result = wsl.exe --distribution $Distro --exec bash -lc $check 2>$null
   if ($result -match '^ok') { Write-Step "WSL ($Distro) is ready: $($result -replace '^ok ', ''), tmux and cv" }
