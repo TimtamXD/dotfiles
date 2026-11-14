@@ -95,3 +95,21 @@ def test_an_ordinary_repo_needs_nothing(tmp_path):
 
 def test_a_folder_outside_any_repo_needs_nothing(tmp_path):
     assert cv.git_env(str(tmp_path)) == {}
+
+
+# --- nvim gets the tools zsh would give it, even when cv runs from a bare bash ---
+
+def test_nvim_gets_mise_runtimes_and_personal_bins_first_on_path():
+    path = cv.dev_path("/usr/bin:/bin", "/home/tim")
+    assert path.split(":")[:4] == [
+        "/home/tim/.local/share/mise/shims",  # node/npm for mason and the TypeScript server
+        "/home/tim/bin",                      # fd on Ubuntu (a link to fdfind)
+        "/home/tim/.dotfiles/bin",
+        "/home/tim/.local/bin",
+    ]
+    assert path.endswith("/usr/bin:/bin")
+
+
+def test_dirs_already_on_path_are_not_added_twice():
+    path = cv.dev_path("/home/tim/bin:/usr/bin", "/home/tim")
+    assert path.split(":").count("/home/tim/bin") == 1

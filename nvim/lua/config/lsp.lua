@@ -173,6 +173,19 @@ local auto_lsp_servers = {
   ['kotlin_language_server'] = false,
   ['sqlls'] = true,  -- SQL (sql-language-server, via npm)
   ['jdtls'] = true,  -- Java (servers/ gradle monorepo; JDK/root config in lsp_setup_opts below)
+  -- web projects (Vite/Next/React, Tailwind, ESLint, Prisma, Postgres)
+  ['html'] = true,
+  ['tailwindcss'] = true,  -- attaches only where a tailwind config exists
+  ['eslint'] = true,  -- attaches only where an eslint config exists; diagnostics + :LspEslintFixAll
+  ['emmet_language_server'] = true,  -- html/jsx/tsx/css abbreviations
+  ['prismals'] = true,
+  -- containers, docs
+  ['dockerls'] = true,
+  ['docker_compose_language_service'] = true,
+  ['marksman'] = true,  -- markdown: links, headings, references
+  -- PowerShell Editor Services runs on pwsh, so only where PowerShell 7 is installed
+  ['powershell_es'] = vim.fn.executable('pwsh') == 1,
+  -- [swift] sourcekit-lsp ships with the Swift toolchain, not mason: see M._setup_toolchain_lsps
 }
 
 --- Refresh or force-update mason-registry if needed (e.g. pkgs are missing)
@@ -499,6 +512,10 @@ lsp_setup_opts['yamlls'] = {
       keyOrdering = false,
     },
   }
+}
+
+lsp_setup_opts['powershell_es'] = {
+  bundle_path = vim.fn.stdpath('data') .. '/mason/packages/powershell-editor-services',
 }
 
 lsp_setup_opts['jdtls'] = function()
@@ -1079,11 +1096,22 @@ function M._setup_kotlin_lsp()
 end
 
 
+--- Servers that come with a language's own toolchain rather than through mason.
+function M._setup_toolchain_lsps()
+  -- Swift: sourcekit-lsp ships with Xcode / the Swift toolchain
+  if vim.fn.executable('sourcekit-lsp') == 1 then
+    vim.lsp.config('sourcekit', { on_attach = on_attach, capabilities = M.lsp_default_capabilities() })
+    vim.lsp.enable('sourcekit')
+  end
+end
+
+
 -- Entrypoint
 function M.setup_lsp()
   M._setup_mason()
   M._setup_lspconfig()
   M._setup_kotlin_lsp()
+  M._setup_toolchain_lsps()
   M._setup_diagnostic()
   M._setup_lsp_keymap()
   M._setup_lsp_commands()

@@ -185,11 +185,7 @@ else
 fi
 
 # Kotlin language server (JetBrains builds expire monthly; nvim keeps this fresh via :KotlinLspUpdate)
-if [[ "$ARCH" == arm64 || "$ARCH" == aarch64 ]]; then
-  "$DOTFILES/bin/kotlin-lsp-update" || warn "kotlin-lsp did not install; run bin/kotlin-lsp-update later"
-else
-  warn "kotlin-lsp only ships arm64 builds; Kotlin falls back to no LSP on $ARCH"
-fi
+"$DOTFILES/bin/kotlin-lsp-update" || warn "kotlin-lsp did not install; run bin/kotlin-lsp-update later"
 
 # iTerm2: IntelliJ Dark colours, MesloLGS NF, minimal tabs
 if [[ "$OS" == "Darwin" && -f "$HOME/Library/Preferences/com.googlecode.iterm2.plist" ]]; then

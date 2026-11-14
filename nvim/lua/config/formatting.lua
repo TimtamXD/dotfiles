@@ -55,8 +55,23 @@ function M.setup_conform()
   end)()
   cf.bash = cf.sh
   cf.zsh = cf.sh
-  cf.javascript = { "prettierd", "prettier", stop_after_first = true }
-  cf.typescript = { "prettierd", "prettier", stop_after_first = true }
+  -- prettier: the project's own node_modules copy when it has one, so its config and version win
+  local prettier = { "prettierd", "prettier", stop_after_first = true }
+  cf.javascript = prettier
+  cf.typescript = prettier
+  cf.javascriptreact = prettier
+  cf.typescriptreact = prettier
+  cf.css = prettier
+  cf.scss = prettier
+  cf.html = prettier
+  cf.json = prettier
+  cf.jsonc = prettier
+  cf.yaml = prettier
+  cf.markdown = prettier
+  cf.graphql = prettier
+  cf.toml = { "taplo" }
+  cf.swift = { "swift_format" }  -- Apple's swift-format, from the Swift toolchain
+  cf.sql = { "pg_format" }  -- the projects' SQL is Postgres (drizzle/supabase migrations)
   cf.kotlin = (function()
     formatter_opts["ktlint"] = {
       cwd = require("conform.util").root_file({

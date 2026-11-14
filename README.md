@@ -67,15 +67,27 @@ and `prefix + Ctrl-r` save and restore sessions (they also survive reboots).
 
 `mise/config.toml` installs Node (LTS and 18), Python, Java (Corretto 21), Rust and Go
 globally; a project's `.mise.toml`, `.nvmrc` or `.java-version` wins inside it. Neovim
-installs language servers through mason the first time it opens a file type (Kotlin,
-Java, TypeScript, Python, Rust, C/C++, Go, Lua, Bash, SQL, YAML, JSON, TOML, XML) and
-formats with ktlint, prettier, ruff, rustfmt, gofmt and clang-format. Kotlin uses
-JetBrains' kotlin-lsp, whose builds expire monthly: nvim replaces it by itself, or run
+installs a language server through mason the first time it opens that kind of file:
+
+| Projects | Servers |
+|---|---|
+| TypeScript/JavaScript, React, Vite/Next | `ts_ls`, `eslint`, `tailwindcss`, `html`, `cssls`, `emmet_language_server` |
+| Databases | `sqlls`, `prismals` |
+| Rust, Python, Go, C/C++ | `rust_analyzer`, `basedpyright` + `ruff`, `gopls`, `clangd` |
+| Kotlin, Java | JetBrains' `kotlin-lsp` (arm64 and x64), `jdtls` |
+| Swift | `sourcekit-lsp` from the Swift toolchain, when installed |
+| Docker, shell, PowerShell | `dockerls`, `docker_compose_language_service`, `bashls`, `powershell_es` (where `pwsh` exists) |
+| Markdown, YAML, TOML, JSON, XML, Lua, LaTeX | `marksman`, `yamlls`, `taplo`, `jsonls`, `lemminx`, `lua_ls`, `texlab` |
+
+Formatting (`:Format`; on save once enabled for a project) uses prettier for web files and
+JSON/YAML/Markdown, ruff, rustfmt, gofmt, clang-format, ktlint, taplo, swift-format and
+pg_format. Kotlin's kotlin-lsp builds expire monthly: nvim replaces it by itself, or run
 `:KotlinLspUpdate`.
 
 To add a language: a line in `mise/config.toml`, its server in `auto_lsp_servers`
 (`nvim/lua/config/lsp.lua`), its parser in `nvim/lua/config/treesitter.lua`, its
-formatter in `nvim/lua/config/formatting.lua`.
+formatter in `nvim/lua/config/formatting.lua`; `tests/test_language_support.py` lists
+what the projects need.
 
 ## What's included
 
@@ -99,7 +111,8 @@ formatter in `nvim/lua/config/formatting.lua`.
 
 ## Tests
 
-`python3 -m pytest tests` checks how `cv` opens Windows projects in WSL.
+`python3 -m pytest tests` checks that every project language has a server, parser and
+formatter, how `cv` opens Windows projects in WSL, and which kotlin-lsp build each machine gets.
 
 ## Secrets
 

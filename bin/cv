@@ -40,6 +40,15 @@ def wsl_path(path):
     return f"/mnt/{m.group(1).lower()}" + (f"/{rest}" if rest else "")
 
 
+def dev_path(path, home):
+    """PATH with what zshrc would add first: mise's runtimes (node/npm, which mason and the
+    TypeScript server need), ~/bin (fd on Ubuntu), ~/.dotfiles/bin and ~/.local/bin. cv may run
+    from a bare `bash -lc` (the Windows Claude app goes through wsl.exe), which reads no zshrc."""
+    wanted = [f"{home}/.local/share/mise/shims", f"{home}/bin", f"{home}/.dotfiles/bin", f"{home}/.local/bin"]
+    rest = [p for p in path.split(":") if p and p not in wanted]
+    return ":".join(wanted + rest)
+
+
 def windows_terminal_attach(session, distro):
     """The command that opens a Windows Terminal tab attached to a WSL tmux session."""
     wsl = ["wsl.exe", "-d", distro] if distro else ["wsl.exe"]
@@ -235,7 +244,8 @@ def open_in_tmux(root, name=None, base=None, pr=False):
             cmd += f" --cmd 'set tabpagemax={max(len(files), 10)}' -p " + " ".join(map(shlex.quote, files))
         cmd += " -c " + shlex.quote(CHANGED_LUA.replace("@BASE@", base).replace("@SHORT@", base[:8]))
     args = ["new-window", "-P", "-F", "#{session_name}:#{window_index}", "-n", name[:24], "-c", root]
-    for key, value in git_env(root).items():  # so nvim's git plugins can follow a Windows-made worktree
+    env = {"PATH": dev_path(os.environ.get("PATH", ""), os.path.expanduser("~")), **git_env(root)}
+    for key, value in env.items():  # git_env: so nvim's git plugins can follow a Windows-made worktree
         args += ["-e", f"{key}={value}"]
     if not inside:
         last = tmux("list-sessions", "-F", "#{session_last_attached} #{session_name}").stdout.split("\n")
