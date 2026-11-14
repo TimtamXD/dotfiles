@@ -11,20 +11,67 @@ branch, or with a PR's own base branch) in the quickfix list: ]q / [q walk them,
 worktree switches to its window instead of opening another. Run from outside tmux (e.g.
 from the Claude app), it opens the window in your most recent tmux session and puts it on
 screen: a terminal already attached to that session switches to it, otherwise a new iTerm2
-tab attaches to it."""
+tab (macOS) or Windows Terminal tab (WSL) attaches to it.
+
+On Windows the Claude app runs it through WSL: `wsl.exe --exec bash -lc "~/.dotfiles/bin/cv 'C:\\path'"`.
+A Windows path (C:\\repo or C:/repo) opens as WSL sees it (/mnt/c/repo)."""
 import glob
 import json
+import re
 import os
 import shlex
 import subprocess
 import sys
 import time
 
-SESSIONS = os.path.expanduser("~/Library/Application Support/Claude/claude-code-sessions/*/*/local_*.json")
+SESSION_GLOBS = [
+    os.path.expanduser("~/Library/Application Support/Claude/claude-code-sessions/*/*/local_*.json"),
+    "/mnt/c/Users/*/AppData/Roaming/Claude/claude-code-sessions/*/*/local_*.json",  # WSL: the Windows app
+]
+WSL = bool(os.environ.get("WSL_DISTRO_NAME"))
+
+
+def wsl_path(path):
+    """C:\\repo or C:/repo -> /mnt/c/repo, where WSL mounts Windows drives; other paths unchanged."""
+    m = re.match(r"^([A-Za-z]):[\\/]*(.*)$", path)
+    if not m:
+        return path
+    rest = m.group(2).replace("\\", "/").rstrip("/")
+    return f"/mnt/{m.group(1).lower()}" + (f"/{rest}" if rest else "")
+
+
+def windows_terminal_attach(session, distro):
+    """The command that opens a Windows Terminal tab attached to a WSL tmux session."""
+    wsl = ["wsl.exe", "-d", distro] if distro else ["wsl.exe"]
+    return ["wt.exe", "-w", "0", "new-tab", "--title", "nvim", *wsl, "--exec", "tmux", "attach-session", "-t", session]
+
+
+def git_env(path):
+    """A worktree the Windows Claude app made has a .git file naming C:/.../.git/worktrees/<name>,
+    which git in WSL can't follow. Returns GIT_DIR / GIT_WORK_TREE pointing at it as WSL sees it,
+    or {} when git manages by itself."""
+    d = os.path.abspath(path)
+    while True:
+        dot_git = os.path.join(d, ".git")
+        if os.path.isdir(dot_git):
+            return {}
+        if os.path.isfile(dot_git):
+            with open(dot_git) as f:
+                gitdir = f.read().strip().removeprefix("gitdir:").strip()
+            linux = wsl_path(gitdir)
+            return {"GIT_DIR": linux, "GIT_WORK_TREE": d} if linux != gitdir else {}
+        parent = os.path.dirname(d)
+        if parent == d:
+            return {}
+        d = parent
+
+
+def with_git_env(path):
+    return {**os.environ, **git_env(path)}
 
 
 def git(cwd, *args):
-    r = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True)
+    r = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, env=with_git_env(cwd))
     return r.stdout.strip() if r.returncode == 0 else ""
 
 
@@ -52,7 +99,7 @@ def sessions():
     """(repo, branch) pairs the Claude app sessions worked on, newest session first.
     A session's branches come from the branches it wrote, its open PRs and its worktree."""
     found = {}
-    for f in glob.glob(SESSIONS):
+    for f in (f for g in SESSION_GLOBS for f in glob.glob(g)):
         try:
             d = json.load(open(f))
         except (OSError, ValueError):
@@ -60,8 +107,9 @@ def sessions():
         if d.get("isArchived"):
             continue
         anchors = d.get("gitAnchors") or []
-        repo = anchors[0]["gitRoot"] if anchors else d.get("cwd") or ""
+        repo = wsl_path(anchors[0]["gitRoot"] if anchors else d.get("cwd") or "")
         pairs = [tuple(w.split("\0", 1)) for w in d.get("writtenBranches") or [] if "\0" in w]
+        pairs = [(wsl_path(r), b) for r, b in pairs]
         pairs += [(repo, p["branch"], p.get("prNumber"), p.get("state")) for p in d.get("prs") or [] if p.get("branch")]
         if d.get("worktreePath") and d.get("branch"):
             pairs.append((repo, d["branch"]))
@@ -104,7 +152,7 @@ def pick():
 
 
 def run(*cmd, cwd=None):
-    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=with_git_env(cwd or os.getcwd()))
     if r.returncode != 0:
         sys.exit(f"cv: {' '.join(cmd[:3])} failed: {r.stderr.strip()}")
     return r.stdout
@@ -187,6 +235,8 @@ def open_in_tmux(root, name=None, base=None, pr=False):
             cmd += f" --cmd 'set tabpagemax={max(len(files), 10)}' -p " + " ".join(map(shlex.quote, files))
         cmd += " -c " + shlex.quote(CHANGED_LUA.replace("@BASE@", base).replace("@SHORT@", base[:8]))
     args = ["new-window", "-P", "-F", "#{session_name}:#{window_index}", "-n", name[:24], "-c", root]
+    for key, value in git_env(root).items():  # so nvim's git plugins can follow a Windows-made worktree
+        args += ["-e", f"{key}={value}"]
     if not inside:
         last = tmux("list-sessions", "-F", "#{session_last_attached} #{session_name}").stdout.split("\n")
         session = max(last, key=lambda l: int(l.split(" ")[0] or 0)).split(" ", 1)[1]
@@ -207,8 +257,20 @@ ITERM_ATTACH = """tell application "iTerm"
 end tell"""
 
 
+def show_on_windows(session, attached):
+    """WSL: a terminal already on the session has switched; otherwise open a Windows Terminal tab on it."""
+    if attached:
+        return
+    cmd = windows_terminal_attach(session, os.environ.get("WSL_DISTRO_NAME"))
+    try:
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        print(f"cv: couldn't start Windows Terminal; run: wsl.exe --exec tmux attach -t {session}", file=sys.stderr)
+
+
 def show(target):
-    """Put the window on screen: switch whatever terminal is on its session to it, or attach a new iTerm2 tab."""
+    """Put the window on screen: switch whatever terminal is on its session to it, or attach a new
+    iTerm2 tab (macOS) or Windows Terminal tab (WSL)."""
     if os.environ.get("TMUX"):
         tmux("switch-client", "-t", target)
         return
@@ -216,6 +278,9 @@ def show(target):
     clients = tmux("list-clients", "-t", session, "-F", "#{client_tty}").stdout.split()
     for tty in clients:
         tmux("switch-client", "-c", tty, "-t", target)
+    if WSL:
+        show_on_windows(session, bool(clients))
+        return
     if clients:
         subprocess.run(["open", "-a", "iTerm"])
         return
@@ -232,7 +297,7 @@ def main():
         root, name, base = review_pr(sys.argv[2])
         target = open_in_tmux(root, name, base, pr=True)
     else:
-        path = sys.argv[1] if len(sys.argv) > 1 else pick()
+        path = wsl_path(sys.argv[1]) if len(sys.argv) > 1 else pick()
         if not path:
             return
         root = git(os.path.abspath(path), "rev-parse", "--show-toplevel")

@@ -13,3 +13,7 @@
 [credential "https://gist.github.com"]
 	helper = 
 	helper = !gh auth git-credential
+[include]
+	path = ~/.gitconfig.local   # machine-only settings, never committed
+[worktree]
+	useRelativePaths = true   # git 2.48+: worktrees that work from Windows and WSL alike

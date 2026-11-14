@@ -92,10 +92,14 @@ formatter in `nvim/lua/config/formatting.lua`.
 | `bin/dev` | on `$PATH` | the command center |
 | `bin/kotlin-lsp-update` | on `$PATH` | reinstalls JetBrains' kotlin-lsp when a build expires |
 | `bin/iterm2-theme` | on `$PATH` | iTerm2 colours, font and tab style (macOS) |
-| `bin/cv` | on `$PATH` | pick a Claude app session's branch and open its worktree in Neovim, in a tmux window |
+| `bin/cv` | on `$PATH` | pick a Claude app session's branch and open its worktree in Neovim, in a tmux window (iTerm2 on macOS; on Windows, WSL's Neovim in a Windows Terminal tab, and it takes `C:\` paths) |
 | `bin/nvim-check` | on `$PATH` | smoke-tests Neovim and its plugins after an upgrade |
 | `claude/skills/nvim` | `~/.claude/skills/nvim` | `/nvim` in a Claude session runs `cv` on that session's worktree |
 | `dev/projects/*.toml` | read by `dev` | task definitions for projects, matched by `root` |
+
+## Tests
+
+`python3 -m pytest tests` checks how `cv` opens Windows projects in WSL.
 
 ## Secrets
 

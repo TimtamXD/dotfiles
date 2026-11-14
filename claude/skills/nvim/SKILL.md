@@ -1,9 +1,27 @@
 ---
 name: nvim
-description: Open a pull request, the worktree this session is working in, or a named branch in Neovim, in its own tmux window shown in iTerm2, so Tim can review it with code navigation. A pull request opens with every changed file in its own tab. Use when Tim says /nvim, "open PR 2109 in nvim", "open this PR in my editor", "open this in nvim", "let me review this locally", or asks to look at a PR or branch in his editor.
+description: Open a pull request, the worktree or project this session is working in, or a named branch in Neovim, in its own tmux window (iTerm2 on macOS; WSL's Neovim in Windows Terminal on Windows), so Tim can edit, review and run it with full code navigation. A pull request opens with every changed file in its own tab. Use when Tim says /nvim, "open PR 2109 in nvim", "open this PR in my editor", "open this in nvim", "let me review this locally", or asks to look at a PR or branch in his editor.
 ---
 
 Open code in Neovim via `cv` (from ~/.dotfiles/bin).
+
+## How to run `cv`
+
+- **macOS, Linux, or a shell already inside WSL:** run `~/.dotfiles/bin/cv …` as written below.
+- **Windows** (your shell is PowerShell or Git Bash, paths look like `C:\…`): `cv` lives in WSL,
+  and Neovim, tmux, the language servers and runtimes run there. Wrap every `cv` command below as
+
+  ```
+  wsl.exe --cd '<windows dir>' --exec bash -lc "~/.dotfiles/bin/cv <args>"
+  ```
+
+  where `<windows dir>` is the repo or worktree as Windows sees it (in Git Bash, `pwd -W`; prefix
+  the command with `MSYS_NO_PATHCONV=1`). Pass directories to `cv` as Windows paths too
+  (`'C:\Users\tim\repos\shop'`): it turns them into `/mnt/c/…` and follows worktrees this app
+  made. It opens a Windows Terminal tab attached to the tmux window, or switches the one already
+  attached. If `wsl.exe` says no distro is installed, or `cv` is not found, tell Tim to run
+  `irm https://raw.githubusercontent.com/TimtamXD/dotfiles/main/install.ps1 | iex` in PowerShell.
+  If `gh` reports it is not logged in, he runs `gh auth login` inside WSL once.
 
 ## A pull request
 
@@ -35,5 +53,7 @@ On a colleague's PR, edits in the review worktree stay local: never commit or pu
    - If the branch has no worktree yet, make one:
      `git worktree add <repo>/.claude/worktrees/review-<branch, / as -> <branch>`.
 2. Run `~/.dotfiles/bin/cv <dir>`. It opens a tmux window named after the branch, runs Neovim with the
-   branch's changed files in the quickfix list, and brings iTerm2 to the front.
+   branch's changed files in the quickfix list, and brings the terminal to the front.
+   A project with no branch of its own (Tim says "open this project in nvim") works the same: pass
+   its root.
 3. Reply in one line: the branch, and "]q / [q to step through the N changed files".

@@ -58,6 +58,20 @@ install_fonts() {  # MesloLGS NF: what the prompt and the tmux status bar draw t
   [[ "$OS" == "Linux" ]] && command -v fc-cache >/dev/null && fc-cache -f "$dir" >/dev/null || true
 }
 
+install_nvim_release() {  # distro packages lag: Ubuntu 24.04 ships 0.9, and this config switches off below 0.10
+  local v; v="$(nvim --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1 || true)"
+  [[ -n "$v" && "$(printf '%s\n' 0.11 "$v" | sort -V | head -1)" == 0.11 ]] && return
+  local arch=x86_64; [[ "$ARCH" == aarch64 || "$ARCH" == arm64 ]] && arch=arm64
+  info "installing the latest Neovim release to /opt/nvim (the packaged one is ${v:-missing})"
+  local tmp; tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/nvim.tar.gz" "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-$arch.tar.gz" \
+    || { warn "Neovim download failed"; rm -rf "$tmp"; return; }
+  tar -C "$tmp" -xzf "$tmp/nvim.tar.gz"
+  sudo rm -rf /opt/nvim && sudo mv "$tmp/nvim-linux-$arch" /opt/nvim
+  sudo ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim   # /usr/local/bin comes before /usr/bin everywhere
+  rm -rf "$tmp"; hash -r
+}
+
 install_deps() {
   local core="zsh tmux neovim git ripgrep fd fzf jq gh python3 curl unzip cmake"
   if [[ "$OS" == "Darwin" ]]; then
@@ -82,6 +96,7 @@ install_deps() {
     command -v mise >/dev/null 2>&1 || { info "installing mise"; curl -fsSL https://mise.run | sh; }
     [[ -d "$HOME/.local/share/powerlevel10k" ]] || git clone --depth 1 https://github.com/romkatv/powerlevel10k "$HOME/.local/share/powerlevel10k"
   fi
+  [[ "$OS" == "Linux" ]] && install_nvim_release
   export PATH="$HOME/.local/bin:$PATH"
   if [[ "$IS_WSL" == 1 ]]; then
     warn "WSL: install the MesloLGS NF font on the Windows side and pick it in Windows Terminal."
@@ -104,6 +119,13 @@ link git/gitconfig     "$HOME/.gitconfig"
 link mise/config.toml  "$HOME/.config/mise/config.toml"
 link claude/skills/nvim "$HOME/.claude/skills/nvim"
 [[ -f "$DOTFILES/git/gitignore_global" ]] && link git/gitignore_global "$HOME/.gitignore_global"
+
+# WSL: repos on the Windows side (/mnt/c/...) are checked out with CRLF by Windows git; without
+# this every file in them shows as modified. ~/.gitconfig is the repo's file, so it goes in the
+# machine-local one it includes.
+if [[ "$IS_WSL" == 1 ]]; then
+  git config --file "$HOME/.gitconfig.local" core.autocrlf input
+fi
 
 # Terminal emulator configs: desktop only. On WSL the GUI terminal runs on
 # Windows, so linking these into the WSL home is pointless — skip.

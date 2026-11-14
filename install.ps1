@@ -215,18 +215,34 @@ function Get-WslDistro {
   return @($names)[0].Trim()
 }
 
+function Request-WslInstall {
+  Write-Warn 'WSL has no Linux distro yet; zsh, tmux, dev and the /nvim skill need one.'
+  $answer = Read-Host 'Install Ubuntu in WSL now? (asks for admin, then a reboot) [Y/n]'
+  if ($answer -match '^[Nn]') { return }
+  Start-Process wsl.exe -ArgumentList '--install', '-d', 'Ubuntu' -Verb RunAs -Wait
+  Write-Warn 'reboot, open "Ubuntu" from the Start menu once to create your Linux user, then run this command again.'
+}
+
+function Test-WslSetup([string]$Distro) {
+  $ErrorActionPreference = 'Continue'
+  # no double quotes: Windows PowerShell 5.1 passes them to native programs unescaped
+  $check = 'v=$(nvim --version 2>/dev/null | head -1); v=${v#NVIM v}; test -x ~/.dotfiles/bin/cv ' +
+    '&& command -v tmux >/dev/null && printf ''%s\n'' 0.11 $v | sort -VC && echo ok nvim $v'
+  $result = wsl.exe --distribution $Distro --exec bash -lc $check 2>$null
+  if ($result -match '^ok') { Write-Step "WSL ($Distro) is ready: $($result -replace '^ok ', ''), tmux and cv" }
+  else { Write-Warn "WSL ($Distro) is not fully set up; run ~/.dotfiles/install.sh inside it and read its warnings" }
+}
+
 function Install-Wsl([bool]$NoDeps) {
   $distro = Get-WslDistro
-  if (-not $distro) {
-    Write-Warn 'no WSL distro found; for the zsh/tmux setup run "wsl --install" (admin), reboot, then re-run this.'
-    return
-  }
+  if (-not $distro) { Request-WslInstall; return }
   Write-Step "running install.sh inside WSL ($distro); it may ask for your Linux password"
   $flag = if ($NoDeps) { ' --no-deps' } else { '' }
   $script = 'set -e; if [ -d ~/.dotfiles/.git ]; then git -C ~/.dotfiles pull --ff-only; ' +
     "else git clone $RepoUrl ~/.dotfiles; fi; ~/.dotfiles/install.sh$flag"
   wsl.exe --distribution $distro --exec bash -lc $script   # --exec: no second shell re-splitting the script
   if ($LASTEXITCODE -ne 0) { Write-Warn "install.sh in WSL exited with $LASTEXITCODE; re-run it there: ~/.dotfiles/install.sh" }
+  Test-WslSetup $distro
 }
 
 # --- main -------------------------------------------------------------------------------
