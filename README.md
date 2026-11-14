@@ -79,6 +79,11 @@ installs a language server through mason the first time it opens that kind of fi
 | Docker, shell, PowerShell | `dockerls`, `docker_compose_language_service`, `bashls`, `powershell_es` (where `pwsh` exists) |
 | Markdown, YAML, TOML, JSON, XML, Lua, LaTeX | `marksman`, `yamlls`, `taplo`, `jsonls`, `lemminx`, `lua_ls`, `texlab` |
 
+Any other language asks the first time you open one of its files: pick a server and Neovim
+installs it and the tree-sitter parser in the background, with a progress bar, then attaches
+the server to the open files. "Never ask" is remembered per filetype; `:LanguageSupport`
+asks again (or `:LanguageSupport <filetype>`). Works the same on macOS, Linux, WSL and Windows.
+
 Formatting (`:Format`; on save once enabled for a project) uses prettier for web files and
 JSON/YAML/Markdown, ruff, rustfmt, gofmt, clang-format, ktlint, taplo, swift-format and
 pg_format. Kotlin's kotlin-lsp builds expire monthly: nvim replaces it by itself, or run
@@ -111,7 +116,8 @@ what the projects need.
 
 ## Tests
 
-`python3 -m pytest tests` checks that every project language has a server, parser and
+`python3 -m pytest tests` (which also runs `tests/*_spec.lua` with `nvim -l` where Neovim is
+installed) checks how new languages are offered, that every project language has a server, parser and
 formatter, how `cv` opens Windows projects in WSL, and which kotlin-lsp build each machine gets.
 
 ## Secrets

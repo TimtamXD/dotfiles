@@ -314,6 +314,7 @@ end
 ---@type table<lspserver_name, false | table | fun():(table|false)>
 local lsp_setup_opts = {}
 M.lsp_setup_opts = lsp_setup_opts
+M.auto_lsp_servers = auto_lsp_servers
 
 ---@see lsp.ClientConfig :help vim.lsp.start_client()
 ---@type table<lspserver_name, fun(client: vim.lsp.Client, init_result: table)>
@@ -1112,6 +1113,7 @@ function M.setup_lsp()
   M._setup_lspconfig()
   M._setup_kotlin_lsp()
   M._setup_toolchain_lsps()
+  require('config.language_support').setup()  -- offers to install support for other languages
   M._setup_diagnostic()
   M._setup_lsp_keymap()
   M._setup_lsp_commands()
