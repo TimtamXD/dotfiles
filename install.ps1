@@ -126,6 +126,15 @@ function Set-Link([string]$Dotfiles, [string]$RepoPath, [string]$Target) {
   Write-Step "linked $Target -> $source"
 }
 
+function Enable-Profile {
+  # Windows ships with scripts disabled, so the linked profile fails to load in every new window.
+  # RemoteSigned for this user only runs local scripts and signed downloaded ones; no admin needed.
+  if ((Get-ExecutionPolicy) -in 'Restricted', 'AllSigned', 'Undefined') {
+    Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+    Write-Step 'PowerShell may now run local scripts like your profile (RemoteSigned, this user only)'
+  }
+}
+
 function Set-Links([string]$Dotfiles) {
   $docs = [Environment]::GetFolderPath('MyDocuments')   # follows OneDrive redirection
   $links = [ordered]@{
@@ -257,6 +266,7 @@ function Install-Dotfiles {
   $dotfiles = Get-Dotfiles
   Write-Step 'linking configs'
   Set-Links $dotfiles
+  Enable-Profile
   if (-not $NoDeps) {
     Install-Fonts
     Set-TerminalFont
