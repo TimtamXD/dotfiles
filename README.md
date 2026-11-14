@@ -1,6 +1,6 @@
 # dotfiles
 
-One command turns a fresh Mac, Linux box or WSL into my working setup: zsh with a
+One command turns a fresh Mac, Linux box, Windows PC or WSL into my working setup: zsh with a
 Powerlevel10k prompt, tmux, Neovim with language servers, every language runtime
 through mise, and `dev`, a command center that runs anything in a project and shows
 what is running.
@@ -8,10 +8,17 @@ what is running.
 ## Quick start
 
 ```bash
-git clone https://github.com/tim-edstart/dotfiles ~/.dotfiles && ~/.dotfiles/install.sh
+git clone https://github.com/TimtamXD/dotfiles ~/.dotfiles && ~/.dotfiles/install.sh
 ```
 
-Then `exec zsh`. The installer is idempotent and non-destructive: it only installs what
+On Windows, from PowerShell (sets up Windows, then runs `install.sh` inside WSL if a
+distro is installed):
+
+```powershell
+irm https://raw.githubusercontent.com/TimtamXD/dotfiles/main/install.ps1 | iex
+```
+
+Then `exec zsh` (or open a new Windows Terminal tab). The installer is idempotent and non-destructive: it only installs what
 is missing, and any file it replaces is kept as `<file>.bak-<timestamp>`. Secrets go in
 `~/.zshrc.local`, which it creates from `zsh/zshrc.local.example` and never commits.
 `install.sh --no-deps` links configs and plugins without touching packages.
@@ -78,6 +85,7 @@ formatter in `nvim/lua/config/formatting.lua`.
 | `vim/` | `~/.vim`, `~/.vimrc` | the vimrc nvim sources for its basic settings and keymaps |
 | `tmux/tmux.conf` | `~/.tmux.conf` | tpm + resurrect/continuum; installer clones tpm |
 | `zsh/zshrc`, `zsh/zshenv`, `zsh/p10k.zsh` | `~/.zshrc`, `~/.zshenv`, `~/.p10k.zsh` | secrets sourced from `~/.zshrc.local` |
+| `powershell/profile.ps1` | `Documents\PowerShell\profile.ps1` (and `WindowsPowerShell`) | Windows only |
 | `git/gitconfig` | `~/.gitconfig` | uses `gh` as the credential helper |
 | `mise/config.toml` | `~/.config/mise/config.toml` | global language runtimes |
 | `terminal/{alacritty,kitty,wezterm}` | `~/.config/*` | desktop only; skipped on WSL |
@@ -101,10 +109,17 @@ gitignored. On first run the installer copies `zsh/zshrc.local.example` to
   fonts into `~/Library/Fonts`, iTerm2 themed.
 - **Linux** — `apt`, `dnf` or `pacman` (auto-detected); Powerlevel10k and mise from
   their installers; fonts into `~/.local/share/fonts`.
-- **WSL** — treated as Linux. Terminal-emulator configs and fonts belong on the Windows
-  host (Windows Terminal), everything else works normally.
-- **Native Windows (no WSL)** — install WSL first (`wsl --install` in an admin
-  PowerShell), then run the quick start inside it.
+- **Windows** — `install.ps1` installs git, neovim, ripgrep, fd, fzf, jq, gh, mise, cmake
+  and zig (the tree-sitter compiler) with winget; links nvim to `%LOCALAPPDATA%\nvim`,
+  `.vimrc`, `.gitconfig`, mise, wezterm, alacritty and a small PowerShell profile
+  (`powershell/profile.ps1`, secrets in `~/.profile.local.ps1`); puts mise's shims on
+  PATH; installs MesloLGS NF and selects it in Windows Terminal. Links are symlinks when
+  Developer Mode is on, otherwise junctions and hard links — after a `git pull`, re-run
+  the installer to refresh hard-linked files. zsh, tmux and `dev` need WSL.
+  Options: `$env:DOTFILES_NO_DEPS=1` (no package installs), `$env:DOTFILES_SKIP_WSL=1`.
+- **WSL** — treated as Linux; `install.ps1` runs `install.sh` in your default distro, or run
+  the quick start inside it. Fonts and terminal configs live on the Windows side. No distro
+  yet: `wsl --install` in an admin PowerShell, reboot, re-run.
 
 ## Credits
 

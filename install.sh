@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One command from a fresh machine to a working setup:
 #
-#   git clone https://github.com/tim-edstart/dotfiles ~/.dotfiles && ~/.dotfiles/install.sh
+#   git clone https://github.com/TimtamXD/dotfiles ~/.dotfiles && ~/.dotfiles/install.sh
 #
 # It installs the tools (zsh, tmux, neovim, git, ripgrep, fd, fzf, jq, gh, python3, cmake,
 # a C compiler, mise for every language runtime, Powerlevel10k and its font), links every

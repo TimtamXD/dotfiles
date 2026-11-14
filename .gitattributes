@@ -1,0 +1,4 @@
+# LF everywhere, even on a Windows checkout with core.autocrlf: install.sh and the zsh/tmux
+# configs break on CRLF, and nvim and PowerShell read LF fine.
+* text=auto eol=lf
+*.ttf binary
