@@ -245,9 +245,41 @@ function Test-WslSetup([string]$Distro) {
   else { Write-Warn "WSL ($Distro) is not fully set up; run ~/.dotfiles/install.sh inside it and read its warnings" }
 }
 
+function Get-WslRelease([string]$Distro) {
+  $ErrorActionPreference = 'Continue'
+  # e.g. 'ubuntu 20.04'; no double quotes: Windows PowerShell 5.1 passes them unescaped
+  $release = wsl.exe --distribution $Distro --exec sh -c '. /etc/os-release && echo $ID $VERSION_ID' 2>$null
+  return "$release".Trim()
+}
+
+function Test-OldUbuntu([string]$Release) {
+  # 22.04 and older ship tmux below 3.3 and fzf below 0.36, which this setup needs
+  $id, $version = $Release -split ' ', 2
+  return $id -eq 'ubuntu' -and $version -and ([version]$version -lt [version]'24.04')
+}
+
+function Install-Ubuntu2404([string]$OldDistro, [string]$Release) {
+  Write-Warn "WSL's default distro $OldDistro is ${Release}: its tmux and fzf are too old for this setup."
+  $answer = Read-Host 'Install Ubuntu 24.04 and make it the default? Your current distro stays installed. [Y/n]'
+  if ($answer -match '^[Nn]') { return $OldDistro }
+  $new = 'Ubuntu-24.04'
+  $installed = (wsl.exe --list --quiet 2>$null) -replace "`0", '' | ForEach-Object { $_.Trim() }
+  if ($installed -notcontains $new) {
+    Write-Step 'installing Ubuntu 24.04: choose a Linux username and password when asked,'
+    Write-Step 'then type  exit  at the Ubuntu prompt to carry on here'
+    wsl.exe --install --distribution $new
+    if ($LASTEXITCODE -ne 0) { Write-Warn "Ubuntu 24.04 did not install (exit $LASTEXITCODE)"; return $OldDistro }
+  }
+  wsl.exe --set-default $new | Out-Null
+  Write-Step "WSL's default distro is now $new (the old one: wsl -d $OldDistro)"
+  return $new
+}
+
 function Install-Wsl([bool]$NoDeps) {
   $distro = Get-WslDistro
   if (-not $distro) { Request-WslInstall; return }
+  $release = Get-WslRelease $distro
+  if (Test-OldUbuntu $release) { $distro = Install-Ubuntu2404 $distro $release }
   Write-Step "running install.sh inside WSL ($distro); it may ask for your Linux password"
   $flag = if ($NoDeps) { ' --no-deps' } else { '' }
   $script = 'set -e; if [ -d ~/.dotfiles/.git ]; then git -C ~/.dotfiles pull --ff-only; ' +
