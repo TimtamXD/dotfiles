@@ -531,15 +531,16 @@ lsp_setup_opts['jdtls'] = function()
       java_home = vim.trim(out[1] or '')
     end
   end
-  local util = require('lspconfig.util')
   return {
     -- Prefer the root of the whole Gradle build (settings.gradle[.kts]) over a
     -- submodule's build.gradle[.kts] or the monorepo-level .git, so jdtls
     -- imports every module and cross-module navigation works.
-    root_dir = function(fname)
-      return util.root_pattern('settings.gradle', 'settings.gradle.kts', 'pom.xml', 'build.xml')(fname)
-        or util.root_pattern('build.gradle', 'build.gradle.kts', '.git')(fname)
-    end,
+    -- Nested lists are priority groups (nvim 0.11.2+).
+    root_markers = {
+      { 'settings.gradle', 'settings.gradle.kts', 'pom.xml', 'build.xml' },
+      { 'build.gradle', 'build.gradle.kts' },
+      '.git',
+    },
     cmd_env = java_home and { JAVA_HOME = java_home } or nil,
     settings = {
       java = java_home and {
@@ -620,7 +621,14 @@ local function setup_lsp(lsp_name)
 
   -- Merge with lang-specific options
   opts = vim.tbl_extend("force", {}, common_opts, opts)
-  require('lspconfig')[lsp_name].setup(opts)
+  if vim.lsp.config ~= nil and vim.lsp.enable ~= nil then
+    -- nvim 0.11+: the built-in API, on top of nvim-lspconfig's lsp/<name>.lua defaults.
+    -- The legacy require('lspconfig')[name].setup() started no servers on nvim 0.12.
+    vim.lsp.config(lsp_name, opts)
+    vim.lsp.enable(lsp_name)
+  else
+    require('lspconfig')[lsp_name].setup(opts)
+  end
 end
 
 -- lsp configs are lazy-loaded or can be triggered after LSP installation,
@@ -631,8 +639,12 @@ local attach_lsp_to_existing_buffers = vim.schedule_wrap(function()
   for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
     local valid = vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].buflisted
     if valid and vim.bo[bufnr].buftype == "" then
-      local augroup_lspconfig = vim.api.nvim_create_augroup('lspconfig', { clear = false })
-      vim.api.nvim_exec_autocmds("FileType", { group = augroup_lspconfig, buffer = bufnr })
+      -- 'nvim.lsp.enable' is vim.lsp.enable()'s group (0.11+), 'lspconfig' the legacy one's
+      for _, group in ipairs({ 'nvim.lsp.enable', 'lspconfig' }) do
+        if pcall(vim.api.nvim_get_autocmds, { group = group }) then
+          vim.api.nvim_exec_autocmds("FileType", { group = group, buffer = bufnr })
+        end
+      end
     end
   end
 end)
@@ -675,7 +687,8 @@ function M._setup_lspconfig()
   end, { force = mason_need_refresh })
 
   -- Use a border for the floating :LspInfo window
-  require("lspconfig.ui.windows").default_options.border = 'single'
+  local ok, lsp_windows = pcall(require, "lspconfig.ui.windows")  -- gone in newer nvim-lspconfig
+  if ok then lsp_windows.default_options.border = 'single' end
 
   -- Add backward-compatible lsp installation related commands
   vim.cmd [[
@@ -1097,6 +1110,15 @@ function M._setup_kotlin_lsp()
 end
 
 
+--- `gr` means references once a server attaches (a buffer-local map, see on_attach).
+--- Before that, say so instead of Neovim's built-in gr{char}, which replaces a character.
+function M._setup_gr_without_server()
+  vim.keymap.set('n', 'gr', function()
+    vim.notify('No language server is attached to this file yet, so there are no references. '
+      .. 'See :checkhealth vim.lsp', vim.log.levels.WARN, { title = 'gr' })
+  end, { nowait = true, desc = 'references (needs a language server)' })
+end
+
 --- Servers that come with a language's own toolchain rather than through mason.
 function M._setup_toolchain_lsps()
   -- Swift: sourcekit-lsp ships with Xcode / the Swift toolchain
@@ -1113,6 +1135,7 @@ function M.setup_lsp()
   M._setup_lspconfig()
   M._setup_kotlin_lsp()
   M._setup_toolchain_lsps()
+  M._setup_gr_without_server()
   require('config.language_support').setup()  -- offers to install support for other languages
   M._setup_diagnostic()
   M._setup_lsp_keymap()
