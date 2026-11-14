@@ -120,7 +120,7 @@ install_deps() {
     brew_arm install $core mise powerlevel10k || true
   elif command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update
-    sudo apt-get install -y zsh tmux neovim git ripgrep fd-find fzf jq python3 curl unzip cmake build-essential clang || true
+    sudo apt-get install -y zsh tmux neovim git ripgrep fd-find fzf jq python3 python3-venv curl unzip cmake build-essential clang || true
     install_gh_apt
     command -v fdfind >/dev/null 2>&1 && mkdir -p "$HOME/bin" && ln -sf "$(command -v fdfind)" "$HOME/bin/fd"
   elif command -v dnf >/dev/null 2>&1; then
@@ -202,6 +202,11 @@ tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true   # a running server
 if command -v nvim >/dev/null 2>&1; then
   info "syncing nvim plugins (headless)"
   nvim --headless "+Lazy! sync" +qa 2>/dev/null || warn "open nvim and run :Lazy sync"
+  # everyday language servers up front; :MasonInstall blocks until done when headless
+  servers=$(sed 's/#.*//' "$DOTFILES/nvim/mason-packages.txt" | xargs)
+  info "installing language servers: $servers"
+  nvim --headless -c "lua require('lazy').load({ plugins = { 'mason.nvim' } }); require('mason').setup()" \
+    -c "MasonInstall $servers" -c qa 2>&1 | tail -5 || warn "some language servers did not install; open nvim and run :Mason"
 else
   warn "nvim not installed — re-run without --no-deps, or install it, then re-run."
 fi

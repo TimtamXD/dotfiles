@@ -206,12 +206,24 @@ function Install-Runtimes {
   if ($LASTEXITCODE -ne 0) { Write-Warn 'mise install had trouble; run: mise install' }
 }
 
-function Install-NvimPlugins {
+function Install-NvimPlugins([string]$Dotfiles) {
   if (-not (Test-Command 'nvim')) { Write-Warn 'nvim is not installed; re-run without -NoDeps'; return }
   Write-Step 'syncing nvim plugins (headless)'
   $ErrorActionPreference = 'Continue'   # 5.1 turns redirected stderr into terminating errors
   nvim --headless '+Lazy! sync' +qa 2>$null
   if ($LASTEXITCODE -ne 0) { Write-Warn 'open nvim and run :Lazy sync' }
+  Install-LanguageServers $Dotfiles
+}
+
+function Install-LanguageServers([string]$Dotfiles) {
+  # everyday language servers up front; :MasonInstall blocks until done when headless
+  $ErrorActionPreference = 'Continue'
+  $servers = (Get-Content (Join-Path $Dotfiles 'nvim/mason-packages.txt') |
+    ForEach-Object { ($_ -replace '#.*', '').Trim() } | Where-Object { $_ }) -join ' '
+  Write-Step "installing language servers: $servers"
+  nvim --headless -c "lua require('lazy').load({ plugins = { 'mason.nvim' } }); require('mason').setup()" `
+    -c "MasonInstall $servers" -c qa 2>&1 | Select-Object -Last 5 | Out-Host
+  if ($LASTEXITCODE -ne 0) { Write-Warn 'some language servers did not install; open nvim and run :Mason' }
 }
 
 # --- WSL --------------------------------------------------------------------------------
@@ -327,7 +339,7 @@ function Install-Dotfiles {
     Set-TerminalFont
     Install-Runtimes
   }
-  Install-NvimPlugins
+  Install-NvimPlugins $dotfiles
   if (-not $SkipWsl) { Install-Wsl $NoDeps }
 
   Write-Step 'done.'

@@ -1,0 +1,16 @@
+# Language servers the installers put in place up front (mason package names), so the first
+# file of each kind opens with code navigation working. Others install on first use.
+rust-analyzer                  # Rust
+basedpyright                   # Python: types, navigation
+ruff                           # Python: lint, format
+typescript-language-server     # JavaScript / TypeScript / React
+eslint-lsp
+tailwindcss-language-server
+html-lsp
+css-lsp
+json-lsp
+yaml-language-server
+taplo                          # TOML
+marksman                       # Markdown
+bash-language-server
+lua-language-server
