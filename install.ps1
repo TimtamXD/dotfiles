@@ -265,9 +265,9 @@ function Install-Ubuntu2404([string]$OldDistro, [string]$Release) {
   $new = 'Ubuntu-24.04'
   $installed = (wsl.exe --list --quiet 2>$null) -replace "`0", '' | ForEach-Object { $_.Trim() }
   if ($installed -notcontains $new) {
-    Write-Step 'installing Ubuntu 24.04: choose a Linux username and password when asked,'
-    Write-Step 'then type  exit  at the Ubuntu prompt to carry on here'
-    wsl.exe --install --distribution $new
+    Write-Step 'installing Ubuntu 24.04'
+    # Out-Host: whatever a function prints becomes part of its return value
+    wsl.exe --install --distribution $new --no-launch | Out-Host
     if ($LASTEXITCODE -ne 0) { Write-Warn "Ubuntu 24.04 did not install (exit $LASTEXITCODE)"; return $OldDistro }
   }
   wsl.exe --set-default $new | Out-Null
@@ -275,11 +275,31 @@ function Install-Ubuntu2404([string]$OldDistro, [string]$Release) {
   return $new
 }
 
+function Initialize-WslUser([string]$Distro) {
+  # A distro installed without its first-run setup only has root: give it your user, as default
+  $ErrorActionPreference = 'Continue'
+  $user = ('' + (wsl.exe --distribution $Distro --exec whoami 2>$null)).Trim()
+  if ($user -and $user -ne 'root') { return }
+  Write-Warn "$Distro has no Linux user yet, so one is made now."
+  $suggested = $env:USERNAME.ToLower() -replace '[^a-z0-9_-]', ''
+  $name = Read-Host "Linux username [$suggested]"
+  if (-not $name) { $name = $suggested }
+  wsl.exe --distribution $Distro --user root --exec useradd --create-home --shell /bin/bash --groups sudo $name | Out-Host
+  Write-Step "choose a password for $name (sudo will ask for it)"
+  # Start-Process keeps the console attached, so passwd can read what you type
+  Start-Process wsl.exe -ArgumentList '--distribution', $Distro, '--user', 'root', '--exec', 'passwd', $name -NoNewWindow -Wait
+  $conf = "printf '\n[user]\ndefault=$name\n' >> /etc/wsl.conf"   # no double quotes inside: see Test-WslSetup
+  wsl.exe --distribution $Distro --user root --exec sh -c $conf | Out-Host
+  wsl.exe --terminate $Distro | Out-Host   # the default user applies from the next start
+  Write-Step "$Distro now starts as $name"
+}
+
 function Install-Wsl([bool]$NoDeps) {
   $distro = Get-WslDistro
   if (-not $distro) { Request-WslInstall; return }
   $release = Get-WslRelease $distro
   if (Test-OldUbuntu $release) { $distro = Install-Ubuntu2404 $distro $release }
+  Initialize-WslUser $distro
   Write-Step "running install.sh inside WSL ($distro); it may ask for your Linux password"
   $flag = if ($NoDeps) { ' --no-deps' } else { '' }
   $script = 'set -e; if [ -d ~/.dotfiles/.git ]; then git -C ~/.dotfiles pull --ff-only; ' +
