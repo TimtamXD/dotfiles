@@ -10,14 +10,22 @@
 #
 #   ./install.sh            everything
 #   ./install.sh --no-deps  links, plugins and shell only; no package installs
+#   ./install.sh --phone    also: reach this machine from a phone (Tailscale SSH + mosh)
 #   ./install.sh --help
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TS="$(date +%Y%m%d-%H%M%S)"
 WITH_DEPS=1
-[[ "${1:-}" == "--no-deps" ]] && WITH_DEPS=0
-[[ "${1:-}" == "--help" ]] && { grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0; }
+PHONE=0
+for arg in "$@"; do
+  case "$arg" in
+    --no-deps) WITH_DEPS=0 ;;
+    --phone)   PHONE=1 ;;
+    --help)    grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *)         printf 'unknown option %s (see --help)\n' "$arg" >&2; exit 2 ;;
+  esac
+done
 
 info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!\033[0m %s\n' "$*"; }
@@ -220,6 +228,32 @@ if [[ "$OS" == "Darwin" && -f "$HOME/Library/Preferences/com.googlecode.iterm2.p
 fi
 
 warn_old_tmux
+
+setup_phone_access() {  # Tailscale (with its SSH: no keys) + mosh, so a phone can reach tmux here
+  if [[ "$OS" == "Darwin" ]]; then
+    warn "phone access on macOS: install the Tailscale app and turn on Remote Login in System Settings"
+    return
+  fi
+  if [[ "$(ps -p 1 -o comm= 2>/dev/null)" != systemd ]]; then  # tailscaled runs as a systemd service
+    warn "WSL is running without systemd, which Tailscale needs. Turning it on:"
+    grep -q '^systemd=true' /etc/wsl.conf 2>/dev/null \
+      || printf '\n[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf >/dev/null
+    warn "  now run  wsl --shutdown  in PowerShell, then this installer again"
+    return
+  fi
+  command -v tailscale >/dev/null || { info "installing Tailscale"; curl -fsSL https://tailscale.com/install.sh | sh; }
+  command -v mosh-server >/dev/null || sudo apt-get install -y mosh
+  local name; name="$(hostname | tr '[:upper:]' '[:lower:]')-wsl"
+  if tailscale status >/dev/null 2>&1; then
+    sudo tailscale set --ssh
+  else
+    info "sign in to Tailscale: open the link below (on any device), then come back"
+    sudo tailscale up --ssh --hostname "$name"
+  fi
+  info "phone access ready. On the iPhone: Tailscale app (same account), then in Termius or Blink:"
+  info "  mosh $(whoami)@$name      then  phone   (your tmux session, the same one as at the PC)"
+}
+[[ "$PHONE" == 1 ]] && setup_phone_access
 
 info "done."
 cat <<MSG

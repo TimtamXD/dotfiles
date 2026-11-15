@@ -11,6 +11,8 @@
 # Options (from a clone:  .\install.ps1 -NoDeps), or as environment variables when piped:
 #   -NoDeps   / $env:DOTFILES_NO_DEPS=1   links and plugins only; no package installs
 #   -SkipWsl  / $env:DOTFILES_SKIP_WSL=1  Windows side only
+#   -Phone    / $env:DOTFILES_PHONE=1     reach WSL from a phone: Tailscale SSH + mosh in WSL,
+#                                         WSL kept running after login, no sleep while plugged in
 
 $RepoUrl = 'https://github.com/TimtamXD/dotfiles'
 $Stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -306,7 +308,26 @@ function Initialize-WslUser([string]$Distro) {
   Write-Step "$Distro now starts as $name"
 }
 
-function Install-Wsl([bool]$NoDeps) {
+function Enable-PhoneAccess([string]$Distro) {
+  # WSL stops a few seconds after its last window closes: start a hidden session at every login,
+  # from the Startup folder (no admin needed, unlike a scheduled task)
+  $startup = [Environment]::GetFolderPath('Startup')
+  $shortcut = Join-Path $startup 'Keep WSL running.lnk'
+  $arguments = "--headless wsl.exe --distribution $Distro --exec sleep infinity"
+  $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)
+  $link.TargetPath = Join-Path $env:WINDIR 'System32\conhost.exe'
+  $link.Arguments = $arguments
+  $link.WindowStyle = 7   # minimised, in case conhost shows anything
+  $link.Save()
+  Start-Process (Join-Path $env:WINDIR 'System32\conhost.exe') -ArgumentList $arguments -WindowStyle Hidden
+  Write-Step "WSL ($Distro) now keeps running after you log in ($shortcut)"
+  # an asleep PC can't be reached; on battery it still sleeps as usual
+  powercfg /change standby-timeout-ac 0 | Out-Null
+  powercfg /change hibernate-timeout-ac 0 | Out-Null
+  Write-Step 'this PC no longer sleeps while plugged in (Settings > System > Power to change it back)'
+}
+
+function Install-Wsl([bool]$NoDeps, [bool]$Phone) {
   $distro = Get-WslDistro
   if (-not $distro) { Request-WslInstall; return }
   $release = Get-WslRelease $distro
@@ -314,20 +335,23 @@ function Install-Wsl([bool]$NoDeps) {
   Initialize-WslUser $distro
   Write-Step "running install.sh inside WSL ($distro); it may ask for your Linux password"
   $flag = if ($NoDeps) { ' --no-deps' } else { '' }
+  if ($Phone) { $flag += ' --phone' }
   $script = 'set -e; if [ -d ~/.dotfiles/.git ]; then git -C ~/.dotfiles pull --ff-only; ' +
     "else git clone $RepoUrl ~/.dotfiles; fi; ~/.dotfiles/install.sh$flag"
   wsl.exe --distribution $distro --exec bash -lc $script   # --exec: no second shell re-splitting the script
   if ($LASTEXITCODE -ne 0) { Write-Warn "install.sh in WSL exited with $LASTEXITCODE; re-run it there: ~/.dotfiles/install.sh" }
   Test-WslSetup $distro
+  if ($Phone) { Enable-PhoneAccess $distro }
 }
 
 # --- main -------------------------------------------------------------------------------
 
 function Install-Dotfiles {
-  param([switch]$NoDeps, [switch]$SkipWsl)
+  param([switch]$NoDeps, [switch]$SkipWsl, [switch]$Phone)
   $ErrorActionPreference = 'Stop'   # scoped here so piping into iex leaves your session alone
   if ($env:DOTFILES_NO_DEPS) { $NoDeps = $true }
   if ($env:DOTFILES_SKIP_WSL) { $SkipWsl = $true }
+  if ($env:DOTFILES_PHONE) { $Phone = $true }
 
   if (-not $NoDeps) { Write-Step 'installing tools'; Install-Packages }
   $dotfiles = Get-Dotfiles
@@ -340,7 +364,7 @@ function Install-Dotfiles {
     Install-Runtimes
   }
   Install-NvimPlugins $dotfiles
-  if (-not $SkipWsl) { Install-Wsl $NoDeps }
+  if (-not $SkipWsl) { Install-Wsl $NoDeps $Phone }
 
   Write-Step 'done.'
   Write-Host '  next:  open a new terminal tab (Windows Terminal picks up the font and PATH)'

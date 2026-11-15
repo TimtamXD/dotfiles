@@ -114,6 +114,25 @@ what the projects need.
 | `claude/skills/nvim` | `~/.claude/skills/nvim` | `/nvim` in a Claude session runs `cv` on that session's worktree |
 | `dev/projects/*.toml` | read by `dev` | task definitions for projects, matched by `root` |
 
+## From a phone
+
+Your PC's WSL, tmux and Neovim from an iPhone, over [Tailscale](https://tailscale.com) (a
+private network; nothing is exposed to the internet) with its SSH (no keys).
+
+At the PC, once, in PowerShell:
+
+```powershell
+$env:DOTFILES_PHONE=1; irm https://raw.githubusercontent.com/TimtamXD/dotfiles/main/install.ps1 | iex
+```
+
+It installs Tailscale (sign in when it shows a link) and mosh in WSL, keeps WSL running after
+you log in (a hidden session started from the Startup folder) and stops the PC sleeping while
+plugged in. On another Linux box: `./install.sh --phone`.
+
+On the iPhone: the Tailscale app (same account), and Termius (free) or Blink Shell. Connect
+with `mosh <you>@<pc>-wsl` (mosh survives network changes and the phone sleeping; plain SSH
+works too), then run `phone`: the tmux session `main`, the same one the PC sees.
+
 ## Tests
 
 `python3 -m pytest tests` (which also runs `tests/*_spec.lua` with `nvim -l` where Neovim is

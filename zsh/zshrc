@@ -56,6 +56,7 @@ add-zsh-hook preexec _title_cmd
 # --- Aliases / functions ---
 # tmux new-session named after the current directory
 tnew() { tmux new-session -s "$(basename "$(pwd)")"; }
+phone() { tmux new-session -A -s main; }  # same session from the phone or the PC: attach, or start it
 alias ls='ls -G'
 alias ll='ls -lh'
 alias g='git'
