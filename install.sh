@@ -70,13 +70,17 @@ version_at_least() {  # version_at_least <minimum> <version>
   [[ -n "$2" && "$(printf '%s\n' "$1" "$2" | sort -V | head -1)" == "$1" ]]
 }
 
-install_fzf_release() {  # fzf-lua (gr, Ctrl-p, Ctrl-g) needs 0.36+; Ubuntu 20.04 ships 0.20, 22.04 0.29
+install_fzf() {  # ~/.fzf: nvim's fzf plugin loads from it; its fzf binary replaces a packaged one
+  # older than 0.36, which fzf-lua (gr, Ctrl-p, Ctrl-g) needs (Ubuntu 20.04 ships 0.20, 22.04 0.29)
+  if [[ -d "$HOME/.fzf/.git" ]]; then
+    git -C "$HOME/.fzf" pull -q --ff-only || true
+  else
+    git clone -q --depth 1 https://github.com/junegunn/fzf "$HOME/.fzf"
+  fi
+  "$HOME/.fzf/install" --bin >/dev/null || { warn "fzf did not install"; return; }
   local v; v="$(fzf --version 2>/dev/null | grep -oE '^[0-9]+\.[0-9]+(\.[0-9]+)?' || true)"
   version_at_least 0.36 "$v" && return
-  info "installing the latest fzf to ~/.fzf (the packaged one is ${v:-missing})"
-  [[ -d "$HOME/.fzf/.git" ]] && git -C "$HOME/.fzf" pull -q --ff-only \
-    || git clone -q --depth 1 https://github.com/junegunn/fzf "$HOME/.fzf"
-  "$HOME/.fzf/install" --bin >/dev/null || { warn "fzf did not install"; return; }
+  info "fzf ${v:-missing} is too old; using ~/.fzf/bin/fzf"
   sudo ln -sf "$HOME/.fzf/bin/fzf" /usr/local/bin/fzf   # /usr/local/bin comes before /usr/bin everywhere
   hash -r
 }
@@ -142,7 +146,8 @@ install_deps() {
     command -v mise >/dev/null 2>&1 || { info "installing mise"; curl -fsSL https://mise.run | sh; }
     [[ -d "$HOME/.local/share/powerlevel10k" ]] || git clone --depth 1 https://github.com/romkatv/powerlevel10k "$HOME/.local/share/powerlevel10k"
   fi
-  [[ "$OS" == "Linux" ]] && { install_nvim_release; install_fzf_release; }
+  [[ "$OS" == "Linux" ]] && install_nvim_release
+  install_fzf
   export PATH="$HOME/.local/bin:$PATH"
   if [[ "$IS_WSL" == 1 ]]; then
     warn "WSL: install the MesloLGS NF font on the Windows side and pick it in Windows Terminal."

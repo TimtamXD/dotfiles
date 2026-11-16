@@ -95,3 +95,19 @@ def test_react_files_and_web_assets_are_formatted_with_prettier():
 
 def test_toml_and_swift_have_formatters():
     assert {"toml", "swift"} <= formatted_filetypes()
+
+
+# --- fzf: fzf-lua (gr, Ctrl-p, Ctrl-g) and the fzf vim plugin ---
+
+INSTALL_SH = (NVIM.parent.parent.parent / "install.sh").read_text()
+UI_PLUGINS = (NVIM.parent / "plugins" / "ui.lua").read_text()
+
+
+def test_every_machine_gets_fzf_in_home_fzf_not_only_ones_with_an_old_fzf():
+    body = re.search(r"^install_fzf\(\) \{.*?^\}", INSTALL_SH, re.S | re.M).group(0)
+    assert 'git clone -q --depth 1 https://github.com/junegunn/fzf "$HOME/.fzf"' in body
+    assert body.index("$HOME/.fzf") < body.index("version_at_least")  # cloned before the version check
+
+
+def test_without_home_fzf_the_fzf_plugin_is_installed_by_lazy_instead_of_switched_off():
+    assert "Please run `dotfiles update`" not in UI_PLUGINS
