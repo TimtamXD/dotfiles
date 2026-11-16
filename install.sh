@@ -132,7 +132,7 @@ install_deps() {
     brew_arm install $core mise powerlevel10k || true
   elif command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update
-    sudo apt-get install -y zsh tmux neovim git ripgrep fd-find fzf jq python3 python3-venv curl unzip cmake build-essential clang || true
+    sudo apt-get install -y zsh tmux neovim git ripgrep fd-find fzf jq python3 python3-venv curl unzip cmake build-essential clang pkg-config libssl-dev || true
     install_gh_apt
     command -v fdfind >/dev/null 2>&1 && mkdir -p "$HOME/bin" && ln -sf "$(command -v fdfind)" "$HOME/bin/fd"
   elif command -v dnf >/dev/null 2>&1; then

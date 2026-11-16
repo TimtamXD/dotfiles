@@ -111,3 +111,8 @@ def test_every_machine_gets_fzf_in_home_fzf_not_only_ones_with_an_old_fzf():
 
 def test_without_home_fzf_the_fzf_plugin_is_installed_by_lazy_instead_of_switched_off():
     assert "Please run `dotfiles update`" not in UI_PLUGINS
+
+
+def test_ubuntu_gets_what_rust_crates_commonly_link_against():
+    # openssl-sys (reqwest, git2, ...) needs pkg-config and the OpenSSL headers to build
+    assert re.search(r"apt-get install -y [^\n]*pkg-config[^\n]*libssl-dev", INSTALL_SH)
