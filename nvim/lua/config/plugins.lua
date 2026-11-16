@@ -16,6 +16,7 @@ local PLUGIN_SPEC = {
   { import = "plugins.ide" },
   { import = "plugins.treesitter" },
   { import = "plugins.utilities" },
+  { import = "plugins.ai" },
 }
 if pcall(require, "plugins.local") then
   -- see ~/.config/nvim/lua/plugins/local.lua

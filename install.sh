@@ -148,6 +148,8 @@ install_deps() {
   fi
   [[ "$OS" == "Linux" ]] && install_nvim_release
   install_fzf
+  # Claude Code: the CLI, and Claude inside nvim (<leader>ac). Native installer to ~/.local/bin
+  command -v claude >/dev/null 2>&1 || { info "installing Claude Code"; curl -fsSL https://claude.ai/install.sh | bash || warn "Claude Code did not install"; }
   export PATH="$HOME/.local/bin:$PATH"
   if [[ "$IS_WSL" == 1 ]]; then
     warn "WSL: install the MesloLGS NF font on the Windows side and pick it in Windows Terminal."

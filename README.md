@@ -114,6 +114,22 @@ what the projects need.
 | `claude/skills/nvim` | `~/.claude/skills/nvim` | `/nvim` in a Claude session runs `cv` on that session's worktree |
 | `dev/projects/*.toml` | read by `dev` | task definitions for projects, matched by `root` |
 
+## Claude in Neovim
+
+[claudecode.nvim](https://github.com/coder/claudecode.nvim) runs Claude Code in a split beside
+your code, signed in with your Claude account (no API key). It sees the open file and your
+selection, searches the project, and proposes edits as diffs. `,` is the leader key:
+
+| Keys | Does |
+|---|---|
+| `,ac` | open / close Claude: ask anything ("where's the fair value calculated?") |
+| `,as` | send the selection (visual mode); in the file tree, add the file under the cursor |
+| `,ab` | add the current file |
+| `,aa` / `,ad` | accept / reject the edit Claude proposed |
+| `,af` · `,ar` · `,aC` · `,am` | jump to Claude · resume a chat · continue the last · pick a model |
+
+`install.sh` installs Claude Code if `claude` isn't there; sign in once by running `claude`.
+
 ## From a phone
 
 Your PC's WSL, tmux and Neovim from an iPhone, over [Tailscale](https://tailscale.com) (a
