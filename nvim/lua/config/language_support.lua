@@ -123,7 +123,12 @@ function M.env()
       if not ts_parsers then return nil end
       local lang = vim.treesitter.language.get_lang(ft) or ft
       local configs = ts_parsers.get_parser_configs and ts_parsers.get_parser_configs() or {}
-      return configs[lang] and lang or nil
+      local config = configs[lang]
+      if not config then return nil end
+      -- some parsers are built from the grammar, which needs the tree-sitter CLI
+      local needs_cli = (config.install_info or {}).requires_generate_from_grammar
+      if needs_cli and vim.fn.executable('tree-sitter') == 0 then return nil end
+      return lang
     end,
     has_parser = function(lang) return require('config.treesitter').has_parser(lang) end,
   }

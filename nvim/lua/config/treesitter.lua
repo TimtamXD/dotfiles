@@ -134,8 +134,9 @@ M.parsers_to_install = vim.tbl_flatten {
   { -- the other languages this setup is ready for (LSP via mason, formatters via conform)
     "rust", "c", "cpp", "cmake", "go", "gomod", "gosum", "toml",
   },
-  { -- side projects: Prisma schemas, Swift apps, PowerShell scripts, JSDoc in JS
-    "prisma", "swift", "powershell", "jsdoc", "jsonc", "gitignore",
+  { -- side projects: Prisma schemas, PowerShell scripts, JSDoc in JS
+    -- (not swift: it is built with the tree-sitter CLI, so it installs on request instead)
+    "prisma", "powershell", "jsdoc", "jsonc", "gitignore",
   },
 }
 

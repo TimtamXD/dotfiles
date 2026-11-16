@@ -66,8 +66,23 @@ def test_swift_uses_the_toolchains_own_sourcekit_lsp_when_it_is_installed():
 def test_every_project_language_has_a_parser():
     assert {
         "typescript", "tsx", "javascript", "html", "css", "sql", "prisma", "rust", "python",
-        "kotlin", "swift", "dockerfile", "powershell", "bash", "markdown", "yaml", "toml", "json",
+        "kotlin", "dockerfile", "powershell", "bash", "markdown", "yaml", "toml", "json",
     } <= parsers()
+
+
+# nvim-treesitter builds these from the grammar, which needs the separate `tree-sitter` CLI;
+# installing one at startup without it fails on every launch ("tree-sitter CLI not found").
+NEEDS_TREE_SITTER_CLI = {"latex", "mlir", "ocamllex", "scfg", "swift", "teal", "unison"}
+
+
+def test_no_parser_installed_at_startup_needs_the_tree_sitter_cli():
+    assert parsers() & NEEDS_TREE_SITTER_CLI == set()
+
+
+def test_the_install_prompt_skips_parsers_this_machine_cannot_build():
+    support = (NVIM / "language_support.lua").read_text()
+    assert "requires_generate_from_grammar" in support
+    assert "vim.fn.executable('tree-sitter')" in support
 
 
 # --- formatters (format-on-save stays opt-in per project) ---
